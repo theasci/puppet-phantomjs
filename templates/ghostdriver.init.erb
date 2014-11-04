@@ -1,0 +1,110 @@
+#!/bin/sh
+#
+# Ghostdriver server init script
+#
+# chkconfig:   2345 99 99
+#
+# description: Starts Phantomjs in remote webdriver mode
+
+### BEGIN INIT INFO
+# Provides: 
+# Required-Start: 
+# Required-Stop: 
+# Should-Start: 
+# Should-Stop: 
+# Default-Start: 
+# Default-Stop: 
+# Short-Description: 
+# Description:      
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+prog='ghostdriver'
+
+lockfile=/var/lock/subsys/$prog
+pidfile=/var/run/${prog}.pid
+
+phantomjs_bin="<%= scope['phantomjs::install_dir'] %>/phantomjs"
+phantomjs_args="--webdriver=<%= @ip_and_port %> --webdriver-selenium-grid-hub=<%= @selenium_hub_url %> --webdriver-logfile=<%= @log_file %> --webdriver-loglevel=<%= @log_level %>"
+exec="${phantomjs_bin} ${phantomjs_args} >/dev/null 2>&1 & "'echo $!'" > ${pidfile}"
+user="<%= @user %>"
+
+start() {
+    # pidfile must be owned by selenium user
+    touch $pidfile
+    chown $user $pidfile
+    echo -n $"Starting $prog: "
+    # if not running, start it up here, usually something like "daemon $exec"
+    daemon --pidfile=${pidfile} --user=${user} ${exec}
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $lockfile
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    # stop it here, often "killproc $prog"
+    killproc -p $pidfile $prog
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+reload() {
+    restart
+}
+
+force_reload() {
+    restart
+}
+
+rh_status() {
+    # run checks to determine if the service is running or use generic status
+    status $prog
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart)
+        $1
+        ;;
+    reload)
+        rh_status_q || exit 7
+        $1
+        ;;
+    force-reload)
+        force_reload
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+        restart
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        exit 2
+esac
+exit $?
